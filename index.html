@@ -43,9 +43,9 @@
   const $ = id => document.getElementById(id); const esc = s => String(s).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[c]));
   function error(msg, where="roomError"){ $(where).textContent=msg; }
   function makeCode(){ return String(Math.floor(100000+Math.random()*900000)); }
-  async function uniqueCode(){ for(let i=0;i<10;i++){const code=makeCode();if(!(await get(ref(db,`rooms/${code}`))).exists())return code;}throw Error("ルーム作成をやり直してください"); }
+  function uniqueCode(){ return makeCode(); }
   function player(name){ return {name:name.trim(), joinedAt:Date.now()}; }
-  async function createRoom(){ const name=$("createName").value.trim(); if(!name)return error("名前を入力してください","homeError"); const code=await uniqueCode(); await set(ref(db,`rooms/${code}`),{meta:{hostId:uid,status:"lobby",round:0,createdAt:Date.now()},players:{[uid]:player(name)}}); enterRoom(code); }
+  async function createRoom(){ const name=$("createName").value.trim(); if(!name)return error("名前を入力してください","homeError"); const code=uniqueCode(); try{await set(ref(db,`rooms/${code}`),{meta:{hostId:uid,status:"lobby",round:0,createdAt:Date.now()},players:{[uid]:player(name)}});}catch{throw Error("部屋の作成に失敗しました。もう一度お試しください");} enterRoom(code); }
   async function joinRoom(){ const name=$("joinName").value.trim(), code=$("joinCode").value.replace(/\D/g,""); if(!name||code.length!==6)return error("名前と6桁のルームコードを入力してください","homeError"); try{await set(ref(db,`rooms/${code}/players/${uid}`),player(name));}catch{throw Error("部屋が見つからないか、ゲーム中または満員です");} enterRoom(code); }
   function enterRoom(code){ roomId=code;sessionStorage.setItem("ww-room",code);$("homeView").classList.add("hidden");$("roomView").classList.remove("hidden");$("roomCode").textContent=code;watchRoom(); }
   function leave(){ if(roomId){remove(ref(db,`rooms/${roomId}/players/${uid}`));remove(ref(db,`privateRooms/${roomId}/${uid}`));} sessionStorage.removeItem("ww-room");roomId=null;if(roomUnsub)roomUnsub();clearInterval(timerId);$("roomView").classList.add("hidden");$("homeView").classList.remove("hidden"); }
