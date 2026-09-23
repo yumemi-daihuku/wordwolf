@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>ことばのオオカミ</title>
+  <style>
+    :root{--bg:#101426;--panel:#1b2140;--line:#313a66;--text:#f5f7ff;--muted:#aeb7db;--main:#8c6cff;--accent:#ffbf47;--danger:#ff6e8a}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% -20%,#36306f 0,var(--bg) 50%);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;min-height:100dvh}main{max-width:620px;margin:auto;padding:24px 16px calc(28px + env(safe-area-inset-bottom))}.brand{text-align:center;margin:18px 0 28px}.brand h1{font-size:30px;margin:0}.brand p{color:var(--muted);margin:7px 0}.card{background:rgba(27,33,64,.94);border:1px solid var(--line);border-radius:20px;padding:20px;margin:12px 0;box-shadow:0 14px 38px #05071755}h2{font-size:19px;margin:0 0 14px}p{line-height:1.65}label{display:block;color:var(--muted);font-size:14px;margin:14px 0 6px}input{width:100%;border:1px solid var(--line);border-radius:12px;background:#11162d;color:var(--text);font:inherit;padding:14px;text-transform:none}button{border:0;border-radius:12px;padding:14px 16px;background:var(--main);color:white;font:700 16px inherit;width:100%;margin-top:12px;cursor:pointer}button.secondary{background:#313a66}button.warn{background:#d94f6d}button:disabled{opacity:.45;cursor:not-allowed}.split{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hidden{display:none!important}.notice{background:#252c51;border-radius:12px;padding:12px;color:#dce1fb;font-size:14px}.error{color:#ffb6c5;min-height:1.5em}.room-code{text-align:center;font-size:36px;letter-spacing:6px;font-weight:800;color:var(--accent);margin:10px 0}.players{list-style:none;margin:0;padding:0}.players li{display:flex;gap:9px;align-items:center;padding:11px 3px;border-bottom:1px solid var(--line)}.dot{width:9px;height:9px;background:#68dfaa;border-radius:50%;flex:none}.tag{font-size:12px;color:#c9bdff;background:#32275b;border-radius:99px;padding:3px 8px;margin-left:auto}.center{text-align:center}.phase{font-weight:800;color:var(--accent);letter-spacing:.05em}.timer{font-size:44px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;margin:7px 0}.word{font-size:30px;font-weight:800;text-align:center;padding:22px 8px;background:#11162d;border-radius:16px;color:var(--accent)}.role{font-size:17px;text-align:center;color:#d9d1ff}.vote-button{text-align:left;background:#29315a;margin:7px 0}.vote-button.selected{outline:2px solid var(--accent);background:#49427c}.small{font-size:13px;color:var(--muted)}.footer{text-align:center;font-size:12px;color:var(--muted);margin-top:22px}details{color:var(--muted);font-size:13px;margin-top:14px}summary{cursor:pointer}code{word-break:break-all}@media(max-width:360px){main{padding-inline:12px}.card{padding:16px}.brand h1{font-size:26px}}
+  </style>
+</head>
+<body>
+<main>
+  <section class="brand"><h1>🐺 ことばのオオカミ</h1><p>3〜8人・スマホで遊ぶワードウルフ</p></section>
+
+  <section id="homeView">
+    <div class="card"><h2>新しい部屋を作る</h2><label for="createName">あなたの名前</label><input id="createName" maxlength="12" placeholder="例：あかり"><button id="createBtn">部屋を作る</button></div>
+    <div class="card"><h2>部屋に参加する</h2><label for="joinName">あなたの名前</label><input id="joinName" maxlength="12" placeholder="例：たろう"><label for="joinCode">ルームコード（6桁）</label><input id="joinCode" inputmode="numeric" maxlength="6" placeholder="123456"><button id="joinBtn">参加する</button><p id="homeError" class="error"></p></div>
+  </section>
+
+  <section id="roomView" class="hidden">
+    <div class="card center"><div class="small">ルームコード</div><div id="roomCode" class="room-code"></div><div class="notice">このコードを全員に送ってください。参加後は「ゲーム開始」を押します。</div></div>
+    <div id="gameCard" class="card hidden"></div>
+    <div id="lobbyCard" class="card"><h2>参加者 <span id="playerCount">0</span>/8人</h2><ul id="playerList" class="players"></ul><div id="hostControls" class="hidden"><button id="startBtn">ゲーム開始</button><p class="small center">3人以上で開始できます</p></div><p id="lobbyHint" class="small center">ホストがゲームを開始するのを待っています</p></div>
+    <button id="leaveBtn" class="secondary">部屋を退出する</button>
+    <p id="roomError" class="error center"></p>
+  </section>
+  <p class="footer">話し合いは別途、対面または通話で行ってください。</p>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+  import { getDatabase, ref, get, set, update, remove, onValue, onDisconnect, runTransaction } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyD8gA9RGMMOct5p-QoSOYymM3qJKR6gYHY", authDomain: "wordwolf-e8708.firebaseapp.com", projectId: "wordwolf-e8708",
+    storageBucket: "wordwolf-e8708.firebasestorage.app", messagingSenderId: "331843861378", appId: "1:331843861378:web:0a5224aacb4602e3af2d9b", measurementId: "G-XVLS7542ZF",
+    databaseURL: "https://wordwolf-e8708-default-rtdb.firebaseio.com"
+  };
+  const app = initializeApp(firebaseConfig); const auth = getAuth(app); const db = getDatabase(app);
+  const pairs = [["コーヒー","紅茶"],["犬","猫"],["夏","冬"],["海","プール"],["映画館","水族館"],["寿司","焼肉"],["東京","大阪"],["スマホ","パソコン"],["サッカー","野球"],["ケーキ","プリン"],["電車","バス"],["ラーメン","うどん"],["富士山","東京タワー"],["ピアノ","ギター"],["ドラえもん","クレヨンしんちゃん"],["ハンバーガー","ピザ"],["朝","夜"],["遊園地","動物園"],["晴れ","雨"],["チョコレート","アイスクリーム"],["YouTube","TikTok"],["カレー","シチュー"],["鉛筆","消しゴム"],["学校","会社"]];
+  let uid, roomId = sessionStorage.getItem("ww-room"), roomUnsub, roomData, timerId;
+  const $ = id => document.getElementById(id); const esc = s => String(s).replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[c]));
+  function error(msg, where="roomError"){ $(where).textContent=msg; }
+  function makeCode(){ return String(Math.floor(100000+Math.random()*900000)); }
+  async function uniqueCode(){ for(let i=0;i<10;i++){const code=makeCode();if(!(await get(ref(db,`rooms/${code}`))).exists())return code;}throw Error("ルーム作成をやり直してください"); }
+  function player(name){ return {name:name.trim(), joinedAt:Date.now()}; }
+  async function createRoom(){ const name=$("createName").value.trim(); if(!name)return error("名前を入力してください","homeError"); const code=await uniqueCode(); await set(ref(db,`rooms/${code}`),{meta:{hostId:uid,status:"lobby",round:0,createdAt:Date.now()},players:{[uid]:player(name)}}); enterRoom(code); }
+  async function joinRoom(){ const name=$("joinName").value.trim(), code=$("joinCode").value.replace(/\D/g,""); if(!name||code.length!==6)return error("名前と6桁のルームコードを入力してください","homeError"); try{await set(ref(db,`rooms/${code}/players/${uid}`),player(name));}catch{throw Error("部屋が見つからないか、ゲーム中または満員です");} enterRoom(code); }
+  function enterRoom(code){ roomId=code;sessionStorage.setItem("ww-room",code);$("homeView").classList.add("hidden");$("roomView").classList.remove("hidden");$("roomCode").textContent=code;watchRoom(); }
+  function leave(){ if(roomId){remove(ref(db,`rooms/${roomId}/players/${uid}`));remove(ref(db,`privateRooms/${roomId}/${uid}`));} sessionStorage.removeItem("ww-room");roomId=null;if(roomUnsub)roomUnsub();clearInterval(timerId);$("roomView").classList.add("hidden");$("homeView").classList.remove("hidden"); }
+  function watchRoom(){ if(roomUnsub)roomUnsub(); roomUnsub=onValue(ref(db,`rooms/${roomId}`),snap=>{roomData=snap.val();if(!roomData){error("部屋が終了しました");return leave();}render();}); onDisconnect(ref(db,`rooms/${roomId}/players/${uid}`)).remove(); }
+  function render(){ const {meta,players={}}=roomData; const list=Object.entries(players);$("playerCount").textContent=list.length; $("playerList").innerHTML=list.map(([id,p])=>`<li><i class="dot"></i>${esc(p.name)}${id===meta.hostId?'<span class="tag">ホスト</span>':''}</li>`).join(""); const host=meta.hostId===uid; $("hostControls").classList.toggle("hidden",!host||meta.status!=="lobby");$("lobbyHint").classList.toggle("hidden",host||meta.status!=="lobby");$("lobbyCard").classList.toggle("hidden",meta.status!=="lobby");$("gameCard").classList.toggle("hidden",meta.status==="lobby"); if(meta.status!=="lobby")renderGame(meta,players,host); }
+  async function startGame(){ const players=Object.keys(roomData.players||{});if(players.length<3)return error("3人以上必要です"); const pairIndex=Math.floor(Math.random()*pairs.length), wolfCount=players.length>=6?2:1; const shuffled=[...players].sort(()=>Math.random()-.5), wolves=new Set(shuffled.slice(0,wolfCount)), round=(roomData.meta.round||0)+1, endAt=Date.now()+180000; const updates={[`rooms/${roomId}/meta/status`]:"discussion",[`rooms/${roomId}/meta/round`]:round,[`rooms/${roomId}/rounds/${round}`]:{pairIndex,endAt,votes:{}}}; players.forEach(id=>updates[`privateRooms/${roomId}/${id}`]={role:wolves.has(id)?"オオカミ":"市民",word:pairs[pairIndex][wolves.has(id)?1:0],round}); await update(ref(db),updates); }
+  function renderGame(meta,players,host){ const r=roomData.rounds?.[meta.round]||{}, phase=meta.status; let html=`<div class="center phase">${phase==="discussion"?"話し合い":phase==="voting"?"投票":"結果発表"}</div>`; if(phase==="discussion"){html+=`<div id="timer" class="timer">03:00</div><p class="small center">言葉を直接言わず、特徴を話しましょう。</p>`;showPrivate(meta.round,html,()=>startTimer(r.endAt,host));}else if(phase==="voting"){clearInterval(timerId);const votes=r.votes||{};if(host&&Object.keys(votes).length===Object.keys(players).length)update(ref(db,`rooms/${roomId}/meta/status`),{status:"result"});const already=votes[uid];html+=`<p class="center">怪しい人を1人選んでください（${Object.keys(votes).length}/${Object.keys(players).length}票）</p>`;html+=Object.entries(players).filter(([id])=>id!==uid).map(([id,p])=>`<button class="vote-button ${already===id?"selected":""}" data-vote="${id}">${esc(p.name)}</button>`).join("");html+=`<p class="small center">投票は変更できます。全員が投票すると結果へ進みます。</p>`;$("gameCard").innerHTML=html;document.querySelectorAll("[data-vote]").forEach(b=>b.onclick=()=>vote(b.dataset.vote));}else{clearInterval(timerId);const result=resultText(r.votes||{},players);html+=`<h2 class="center">${result}</h2><div class="notice center">オオカミのお題は「${esc(pairs[r.pairIndex]?.[1]||"")}」でした。</div>${host?'<button id="nextBtn">次のゲームへ</button>':'<p class="small center">ホストが次のゲームを開始します</p>'}`;$("gameCard").innerHTML=html;if(host)$("nextBtn").onclick=startGame;} }
+  async function showPrivate(round, html, after){ const snap=await get(ref(db,`privateRooms/${roomId}/${uid}`));const mine=snap.val(); if(!mine||mine.round!==round){$("gameCard").innerHTML=html+'<p class="center">あなたのお題を準備中です…</p>';return;} $("gameCard").innerHTML=html+`<div class="role">あなたは <b>${mine.role}</b></div><div class="word">${esc(mine.word)}</div><p class="small center">この画面を他の人に見せないでください。</p>`;after(); }
+  function startTimer(endAt,host){clearInterval(timerId);const tick=()=>{const remain=Math.max(0,endAt-Date.now()),s=Math.ceil(remain/1000),el=$("timer");if(el)el.textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;if(!remain){clearInterval(timerId);if(host)update(ref(db,`rooms/${roomId}/meta`),{status:"voting"});}};tick();timerId=setInterval(tick,500);}
+  async function vote(target){await set(ref(db,`rooms/${roomId}/rounds/${roomData.meta.round}/votes/${uid}`),target);}
+  function resultText(votes,players){const tally={};Object.values(votes).forEach(id=>tally[id]=(tally[id]||0)+1);const top=Math.max(...Object.values(tally),0), ids=Object.keys(tally).filter(id=>tally[id]===top);if(!top||ids.length!==1)return "投票は同数でした";return `${players[ids[0]]?.name||"不明"} さんが最多票です（${top}票）`;}
+  $("createBtn").onclick=()=>createRoom().catch(e=>error(e.message,"homeError")); $("joinBtn").onclick=()=>joinRoom().catch(e=>error(e.message,"homeError")); $("startBtn").onclick=()=>startGame().catch(e=>error(e.message));$("leaveBtn").onclick=leave;
+  onAuthStateChanged(auth,user=>{if(user){uid=user.uid;if(roomId)enterRoom(roomId);}else signInAnonymously(auth).catch(()=>error("匿名認証をFirebase Consoleで有効化してください","homeError"));});
+</script>
+</body>
+</html>
